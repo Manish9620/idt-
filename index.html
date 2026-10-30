@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manish Shirvi — Student Developer Portfolio</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            carbon: {
+              900: '#0d1117',
+              800: '#161b22',
+              700: '#21262d',
+            },
+            emerald: {
+              300: '#6ee7b7',
+              400: '#34d399',
+              500: '#10b981',
+              600: '#059669',
+            },
+            lime: {
+              300: '#bef264',
+              400: '#a3e635',
+              500: '#84cc16',
+            }
+          },
+          animation: {
+            'fadeIn': 'fadeIn 0.25s ease-out forwards',
+          },
+          keyframes: {
+            fadeIn: {
+              '0%': { opacity: '0', transform: 'translateY(-6px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            },
+          },
+        }
+      }
+    }
+  </script>
+  <!-- React & Babel for zero-build instant browser preview -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    body {
+      background-color: #0d1117;
+      color: #f3f4f6;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      overflow-x: hidden;
+    }
+    ::-webkit-scrollbar {
+      width: 7px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0d1117;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1f2937;
+      border-radius: 4px;
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #10b981;
+    }
+  </style>
+</head>
+<body class="bg-[#0d1117] text-zinc-100 selection:bg-emerald-500 selection:text-black">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // --- Background Canvas: Matrix-Dot Grid with Ripple Effect ---
+    function MatrixGridCanvas() {
+      const canvasRef = useRef(null);
+
+      useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        let animationFrameId;
+        let width = 0;
+        let height = 0;
+        let dpr = 1;
+
+        const SPACING = 34;
+        const INFLUENCE_RADIUS = 160;
+        const MAX_DISPLACEMENT = 16;
+        const BASE_DOT_RADIUS = 1.25;
+
+        const mouse = {
+          x: -1000,
+          y: -1000,
+          targetX: -1000,
+          targetY: -1000,
+          active: false,
+        };
+
+        let points = [];
+
+        const initGrid = () => {
+          dpr = window.devicePixelRatio || 1;
+          width = window.innerWidth;
+          height = window.innerHeight;
+
+          canvas.width = Math.floor(width * dpr);
+          canvas.height = Math.floor(height * dpr);
+          canvas.style.width = `${width}px`;
+          canvas.style.height = `${height}px`;
+
+          ctx.scale(dpr, dpr);
+
+          points = [];
+          const cols = Math.ceil(width / SPACING) + 2;
+          const rows = Math.ceil(height / SPACING) + 2;
+
+          for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+              const baseX = c * SPACING - SPACING / 2;
+              const baseY = r * SPACING - SPACING / 2;
+              points.push({
+                baseX,
+                baseY,
+                x: baseX,
+                y: baseY,
+                phase: (c + r) * 0.25,
+              });
+            }
+          }
+        };
+
+        initGrid();
+
+        const handleResize = () => initGrid();
+        const handleMouseMove = (e) => {
+          const rect = canvas.getBoundingClientRect();
+          mouse.targetX = e.clientX - rect.left;
+          mouse.targetY = e.clientY - rect.top;
+          mouse.active = true;
+        };
+        const handleMouseLeave = () => {
+          mouse.targetX = -1000;
+          mouse.targetY = -1000;
+          mouse.active = false;
+        };
+        const handleTouchMove = (e) => {
+          if (e.touches.length > 0) {
+            const rect = canvas.getBoundingClientRect();
+            mouse.targetX = e.touches[0].clientX - rect.left;
+            mouse.targetY = e.touches[0].clientY - rect.top;
+            mouse.active = true;
+          }
+        };
+
+        window.addEventListener('resize', handleResize);
+        window.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseleave', handleMouseLeave);
+        window.addEventListener('touchmove', handleTouchMove);
+
+        let time = 0;
+        const render = () => {
+          time += 0.02;
+          mouse.x += (mouse.targetX - mouse.x) * 0.12;
+          mouse.y += (mouse.targetY - mouse.y) * 0.12;
+
+          ctx.clearRect(0, 0, width, height);
+
+          const len = points.length;
+          for (let i = 0; i < len; i++) {
+            const p = points[i];
+            const waveX = Math.cos(time * 0.6 + p.phase) * 1.5;
+            const waveY = Math.sin(time * 0.7 + p.phase) * 2.2;
+
+            let curX = p.baseX + waveX;
+            let curY = p.baseY + waveY;
+
+            const dx = curX - mouse.x;
+            const dy = curY - mouse.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            let intensity = 0;
+            let dotRadius = BASE_DOT_RADIUS;
+            let fillStyle = 'rgba(16, 185, 129, 0.14)';
+
+            if (dist < INFLUENCE_RADIUS) {
+              const factor = Math.cos((dist / INFLUENCE_RADIUS) * (Math.PI / 2));
+              intensity = Math.pow(factor, 1.8);
+
+              const angle = Math.atan2(dy, dx);
+              const push = intensity * MAX_DISPLACEMENT;
+              curX += Math.cos(angle) * push;
+              curY += Math.sin(angle) * push;
+
+              dotRadius = BASE_DOT_RADIUS + intensity * 2.2;
+
+              const r = Math.round(16 + intensity * (163 - 16));
+              const g = Math.round(185 + intensity * (230 - 185));
+              const b = Math.round(129 - intensity * (129 - 53));
+              const alpha = 0.2 + intensity * 0.75;
+              fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha.toFixed(3)})`;
+            }
+
+            ctx.beginPath();
+            ctx.arc(curX, curY, dotRadius, 0, Math.PI * 2);
+            ctx.fillStyle = fillStyle;
+            ctx.fill();
+
+            if (intensity > 0.65) {
+              ctx.beginPath();
+              ctx.arc(curX, curY, dotRadius + 3, 0, Math.PI * 2);
+              ctx.strokeStyle = `rgba(163, 230, 53, ${(intensity * 0.25).toFixed(3)})`;
+              ctx.lineWidth = 1;
+              ctx.stroke();
+            }
+          }
+
+          animationFrameId = requestAnimationFrame(render);
+        };
+
+        render();
+
+        return () => {
+          cancelAnimationFrame(animationFrameId);
+          window.removeEventListener('resize', handleResize);
+          window.removeEventListener('mousemove', handleMouseMove);
+          document.removeEventListener('mouseleave', handleMouseLeave);
+          window.removeEventListener('touchmove', handleTouchMove);
+        };
+      }, []);
+
+      return (
+        <canvas
+          ref={canvasRef}
+          className="fixed inset-0 pointer-events-none z-0"
+          style={{ background: 'transparent' }}
+          aria-hidden="true"
+        />
+      );
+    }
+
+    // --- Floating Frosted-Glass Navbar ---
+    function Navbar() {
+      const [scrolled, setScrolled] = useState(false);
+      const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+      const [activeLink, setActiveLink] = useState('Home');
+
+      const navLinks = [
+        { name: 'About', href: '#about' },
+        { name: 'Projects', href: '#projects' },
+        { name: 'Skills', href: '#skills' },
+        { name: 'Campus Life', href: '#campus-life' },
+        { name: 'Contact', href: '#contact' },
+      ];
+
+      useEffect(() => {
+        const handleScroll = () => {
+          setScrolled(window.scrollY > 20);
+        };
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+      }, []);
+
+      return (
+        <header className="fixed top-4 left-0 right-0 z-50 flex justify-center px-4 sm:px-6">
+          <nav
+            aria-label="Main Navigation"
+            className={`w-full max-w-5xl transition-all duration-300 rounded-2xl border ${
+              scrolled
+                ? 'bg-[#0d1117]/85 backdrop-blur-xl border-emerald-500/25 shadow-[0_8px_30px_rgba(0,0,0,0.6),0_0_20px_rgba(16,185,129,0.1)] py-2.5 px-4 sm:px-6'
+                : 'bg-[#0d1117]/65 backdrop-blur-md border-emerald-500/15 shadow-[0_4px_20px_rgba(0,0,0,0.4)] py-3 px-4 sm:px-6'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <a
+                href="#"
+                className="group flex items-center gap-2.5 focus:outline-none"
+                onClick={() => setActiveLink('Home')}
+              >
+                <div className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500/20 to-lime-500/10 border border-emerald-500/40 group-hover:border-lime-400 group-hover:shadow-[0_0_15px_rgba(16,185,129,0.35)] transition-all duration-300">
+                  <span className="font-mono text-xs font-bold text-emerald-400 group-hover:text-lime-300 transition-colors">
+                    &lt;M/&gt;
+                  </span>
+                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold tracking-tight text-white group-hover:text-emerald-300 transition-colors">
+                    Manish Shirvi
+                  </span>
+                  <span className="text-[11px] font-mono text-emerald-400/80 tracking-widest uppercase">
+                    dev.portfolio
+                  </span>
+                </div>
+              </a>
+
+              <div className="hidden md:flex items-center gap-1 bg-[#161b22]/70 p-1.5 rounded-xl border border-white/5">
+                {navLinks.map((link) => {
+                  const isActive = activeLink === link.name;
+                  return (
+                    <a
+                      key={link.name}
+                      href={link.href}
+                      onClick={() => setActiveLink(link.name)}
+                      className={`relative px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+                        isActive
+                          ? 'text-white bg-emerald-500/15 shadow-[0_0_10px_rgba(16,185,129,0.15)]'
+                          : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/5'
+                      }`}
+                    >
+                      {link.name}
+                      {isActive && (
+                        <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3.5 h-[2px] bg-gradient-to-r from-emerald-400 to-lime-400 rounded-full" />
+                      )}
+                    </a>
+                  );
+                })}
+              </div>
+
+              <div className="hidden md:flex items-center gap-3">
+                <a
+                  href="#contact"
+                  className="relative inline-flex items-center gap-2 px-3.5 py-1.5 text-xs font-mono font-medium text-emerald-300 bg-emerald-950/40 border border-emerald-500/30 hover:border-lime-400 rounded-lg hover:shadow-[0_0_15px_rgba(16,185,129,0.25)] hover:text-lime-300 transition-all duration-200"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                  <span>Say Hello</span>
+                </a>
+              </div>
+
+              <div className="md:hidden flex items-center">
+                <button
+                  type="button"
+                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                  className="p-2 rounded-xl text-zinc-300 hover:text-white bg-white/5 border border-emerald-500/20 hover:border-emerald-500/40 focus:outline-none transition-colors"
+                  aria-label="Toggle Navigation Menu"
+                  aria-expanded={mobileMenuOpen}
+                >
+                  {mobileMenuOpen ? (
+                    <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {mobileMenuOpen && (
+              <div className="md:hidden mt-3 pt-3 border-t border-emerald-500/15 animate-fadeIn">
+                <div className="flex flex-col gap-1.5 pb-2">
+                  {navLinks.map((link) => (
+                    <a
+                      key={link.name}
+                      href={link.href}
+                      onClick={() => {
+                        setActiveLink(link.name);
+                        setMobileMenuOpen(false);
+                      }}
+                      className="flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg text-zinc-300 hover:text-white hover:bg-emerald-500/10 hover:border-emerald-500/20 border border-transparent transition-all"
+                    >
+                      <span>{link.name}</span>
+                      <span className="font-mono text-xs text-emerald-400/60">&gt;</span>
+                    </a>
+                  ))}
+                  <div className="pt-2 mt-1 border-t border-white/5">
+                    <a
+                      href="#contact"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center justify-center gap-2 w-full py-2.5 text-xs font-mono font-medium text-black bg-gradient-to-r from-emerald-400 to-lime-400 rounded-lg shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all"
+                    >
+                      <span>Get in Touch</span>
+                      <span>&rarr;</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
+          </nav>
+        </header>
+      );
+    }
+
+    // --- Hero Intro Screen ---
+    function Hero() {
+      const [copiedEmail, setCopiedEmail] = useState(false);
+
+      const handleCopyEmail = () => {
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText('manish.shirvi@example.com');
+        }
+        setCopiedEmail(true);
+        setTimeout(() => setCopiedEmail(false), 2200);
+      };
+
+      return (
+        <section className="relative min-h-screen flex flex-col justify-center items-center px-4 sm:px-6 pt-28 pb-16 overflow-hidden">
+          <div
+            className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] sm:w-[750px] h-[350px] bg-gradient-to-tr from-emerald-500/12 via-teal-500/8 to-lime-400/10 rounded-full blur-[130px] pointer-events-none"
+            aria-hidden="true"
+          />
+          <div
+            className="absolute bottom-10 -left-20 w-72 h-72 bg-emerald-600/10 rounded-full blur-[100px] pointer-events-none"
+            aria-hidden="true"
+          />
+          <div
+            className="absolute top-1/3 -right-20 w-80 h-80 bg-lime-500/8 rounded-full blur-[110px] pointer-events-none"
+            aria-hidden="true"
+          />
+
+          <div className="relative z-10 max-w-4xl mx-auto flex flex-col items-center text-center">
+            <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-[#161b22]/90 border border-emerald-500/30 hover:border-lime-400/60 shadow-[0_0_20px_rgba(16,185,129,0.15)] transition-all duration-300 group cursor-default mb-8">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-[0_0_8px_#10b981]"></span>
+              </span>
+              <span className="font-mono text-xs font-semibold text-emerald-300 tracking-wide">
+                Student Developer <span className="text-emerald-500/60">//</span> Open for Internships
+              </span>
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-lime-400 group-hover:scale-125 transition-transform"></span>
+            </div>
+
+            <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-white leading-[1.12] mb-6">
+              Hey, I am <span className="text-white">Manish shirvi</span>
+              <span className="text-emerald-400"> — </span>
+              <br className="hidden sm:inline" />
+              <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-lime-300 bg-clip-text text-transparent drop-shadow-[0_2px_20px_rgba(16,185,129,0.3)]">
+                Building the Future of Tech.
+              </span>
+            </h1>
+
+            <p className="max-w-2xl text-base sm:text-lg md:text-xl text-zinc-300 leading-relaxed font-normal mb-10 px-2">
+              <span className="text-emerald-300/90 font-medium">
+                [REPLACE: YOUR DEGREE & COLLEGE, e.g., 2nd Year aiml student passionate about web development, AI, and building real-world projects.]
+              </span>
+            </p>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto mb-14">
+              <a
+                href="#projects"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl text-sm font-semibold tracking-wide text-[#0d1117] bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-lime-400 shadow-[0_0_25px_rgba(16,185,129,0.35)] hover:shadow-[0_0_35px_rgba(163,230,53,0.5)] transform hover:-translate-y-1 active:translate-y-0 transition-all duration-300 group cursor-pointer"
+              >
+                <span>View My Projects</span>
+                <svg className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+              </a>
+
+              <a
+                href="#contact"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-7 py-4 rounded-xl text-sm font-medium tracking-wide text-zinc-200 hover:text-white bg-[#161b22]/70 hover:bg-[#161b22] border border-emerald-500/35 hover:border-lime-400 shadow-[0_4px_20px_rgba(0,0,0,0.3)] hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] transform hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 group"
+              >
+                <svg className="w-4 h-4 text-emerald-400 group-hover:text-lime-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span>Download Resume / CV</span>
+              </a>
+            </div>
+
+            <div className="w-full max-w-2xl pt-8 border-t border-emerald-500/15 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+              <span className="font-mono text-xs text-zinc-500 mr-1">// CORE FOCUS:</span>
+              {['React / Next.js', 'Tailwind CSS', 'AI & Machine Learning', 'Python', 'FastAPI', 'System Design'].map((tech) => (
+                <span
+                  key={tech}
+                  className="font-mono text-xs px-2.5 py-1 rounded-md bg-[#161b22]/80 text-zinc-300 border border-emerald-500/20 hover:border-lime-400/50 hover:text-emerald-300 transition-colors cursor-default"
+                >
+                  {tech}
+                </span>
+              ))}
+            </div>
+
+            <div className="mt-8 flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={handleCopyEmail}
+                className="inline-flex items-center gap-2 text-xs font-mono text-zinc-400 hover:text-emerald-300 transition-colors focus:outline-none"
+              >
+                <span className="text-emerald-400">&gt;</span>
+                <span>manish.shirvi@example.com</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-400">
+                  {copiedEmail ? 'Copied! ✓' : 'Click to copy'}
+                </span>
+              </button>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    // --- 3D Perspective Tilt Project Card ---
+    function ProjectCard({ project }) {
+      const cardRef = useRef(null);
+      const [tiltStyle, setTiltStyle] = useState({
+        transform: 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0px)',
+        transition: 'transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s ease, border-color 0.3s ease',
+      });
+      const [shine, setShine] = useState({ x: 50, y: 50, opacity: 0 });
+
+      const handleMouseMove = (e) => {
+        if (!cardRef.current) return;
+        const rect = cardRef.current.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+
+        const rotateX = ((y - centerY) / centerY) * -8.5;
+        const rotateY = ((x - centerX) / centerX) * 8.5;
+
+        setTiltStyle({
+          transform: `perspective(1000px) rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg) translateY(-6px)`,
+          transition: 'transform 0.08s ease-out, box-shadow 0.2s ease, border-color 0.2s ease',
+        });
+
+        setShine({
+          x: (x / rect.width) * 100,
+          y: (y / rect.height) * 100,
+          opacity: 1,
+        });
+      };
+
+      const handleMouseLeave = () => {
+        setTiltStyle({
+          transform: 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0px)',
+          transition: 'transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s ease, border-color 0.3s ease',
+        });
+        setShine((prev) => ({ ...prev, opacity: 0 }));
+      };
+
+      return (
+        <div
+          ref={cardRef}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+          style={tiltStyle}
+          className="group relative flex flex-col justify-between rounded-2xl bg-[#161b22]/75 backdrop-blur-xl border border-emerald-500/20 hover:border-emerald-400/50 hover:shadow-[0_14px_40px_rgba(16,185,129,0.22)] p-6 sm:p-7 transition-all duration-300 will-change-transform overflow-hidden"
+        >
+          <div
+            className="pointer-events-none absolute inset-0 rounded-2xl transition-opacity duration-300 z-0"
+            style={{
+              background: `radial-gradient(circle 260px at ${shine.x}% ${shine.y}%, rgba(16, 185, 129, 0.16), rgba(163, 230, 53, 0.06) 45%, transparent 75%)`,
+              opacity: shine.opacity,
+            }}
+          />
+          <div className="pointer-events-none absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-emerald-400/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10" />
+
+          <div className="relative z-10 mb-4">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-lime-400 px-2.5 py-1 rounded-md bg-lime-400/10 border border-lime-400/20">
+                <span className="w-1.5 h-1.5 rounded-full bg-lime-400"></span>
+                {project.badge}
+              </span>
+              <span className="font-mono text-xs text-zinc-500 group-hover:text-emerald-400/80 transition-colors">
+                {project.index}
+              </span>
+            </div>
+
+            <h3 className="text-xl font-bold tracking-tight text-white group-hover:text-emerald-300 transition-colors duration-200 mb-2.5">
+              {project.title}
+            </h3>
+
+            <p className="text-sm text-zinc-300 leading-relaxed font-normal">
+              {project.description}
+            </p>
+          </div>
+
+          <div className="relative z-10 mt-5 pt-4 border-t border-emerald-500/10 flex flex-col gap-4">
+            <div className="flex flex-wrap gap-1.5">
+              {project.tech.map((tag) => (
+                <span
+                  key={tag}
+                  className="font-mono text-[11px] px-2.5 py-1 rounded-md bg-[#0d1117]/80 text-emerald-300/90 border border-emerald-500/25 group-hover:border-emerald-500/40 transition-colors"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5 pt-1">
+              <a
+                href={project.demoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-black bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-lime-400 shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:shadow-[0_0_20px_rgba(163,230,53,0.45)] transform hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+              >
+                <span>Live Demo</span>
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+
+              <a
+                href={project.githubUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium text-zinc-300 hover:text-white bg-[#0d1117]/80 hover:bg-[#1f242c] border border-emerald-500/30 hover:border-lime-400/60 transform hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+              >
+                <span>GitHub Code</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // --- Featured Projects Showcase ---
+    function FeaturedProjects() {
+      const [activeFilter, setActiveFilter] = useState('All');
+      const filterOptions = ['All', 'Web Apps', 'AI / ML', 'Mini-Projects'];
+
+      const projectsData = [
+        {
+          id: 'p1',
+          index: '// 01',
+          title: 'Inventory Management System',
+          category: 'Web Apps',
+          badge: 'Full Stack App',
+          description:
+            'Streamlines real-time asset tracking and stock-level notifications for campus labs and small businesses. Eliminates supply bottlenecks with automated low-stock threshold triggers and dynamic analytics.',
+          tech: ['React', 'Firebase', 'Tailwind CSS', 'Chart.js'],
+          demoUrl: 'https://example.com/inventory-demo',
+          githubUrl: 'https://github.com/manishshirvi/inventory-management',
+        },
+        {
+          id: 'p2',
+          index: '// 02',
+          title: 'Real-Time Vision & Analytics with Python',
+          category: 'AI / ML',
+          badge: 'AI / Computer Vision',
+          description:
+            'Leverages deep neural networks and OpenCV to process live camera feeds for automated attendance and gesture recognition. Delivers sub-second inference at 30+ FPS with edge deployment and zero cloud latency.',
+          tech: ['Python', 'OpenCV', 'TensorFlow', 'NumPy'],
+          demoUrl: 'https://example.com/python-vision-demo',
+          githubUrl: 'https://github.com/manishshirvi/python-cv-analytics',
+        },
+        {
+          id: 'p3',
+          index: '// 03',
+          title: '[REPLACE: Project 3 Title, e.g., Student Notes Marketplace]',
+          category: 'Web Apps',
+          secondaryCategory: 'Mini-Projects',
+          badge: 'Campus Marketplace',
+          description:
+            'A peer-to-peer portal designed for university students to publish, discover, and rate semester study guides and lecture notes. Integrates instant semantic search, verified student ratings, and fast browser document previews.',
+          tech: ['Tailwind', 'Node.js', 'Express', 'PostgreSQL'],
+          demoUrl: 'https://example.com/notes-marketplace-demo',
+          githubUrl: 'https://github.com/manishshirvi/student-notes-marketplace',
+        },
+      ];
+
+      const filteredProjects = projectsData.filter((project) => {
+        if (activeFilter === 'All') return true;
+        if (activeFilter === project.category) return true;
+        if (project.secondaryCategory === activeFilter) return true;
+        return false;
+      });
+
+      return (
+        <section id="projects" className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-20 border-t border-emerald-500/15">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+            <div>
+              <div className="inline-flex items-center gap-2 font-mono text-xs text-lime-400 mb-2.5 uppercase tracking-wider">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>// PORTFOLIO SHOWCASE</span>
+              </div>
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+                Featured <span className="bg-gradient-to-r from-emerald-400 to-lime-300 bg-clip-text text-transparent">Projects</span>
+              </h2>
+              <p className="text-sm sm:text-base text-zinc-400 mt-2 max-w-xl">
+                Selected real-world applications, intelligent AI models, and student tools engineered with modern tech stacks.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-none">
+              {filterOptions.map((filter) => {
+                const isActive = activeFilter === filter;
+                return (
+                  <button
+                    key={filter}
+                    type="button"
+                    onClick={() => setActiveFilter(filter)}
+                    className={`relative px-4 py-2 rounded-xl text-xs font-mono font-medium whitespace-nowrap transition-all duration-300 focus:outline-none ${
+                      isActive
+                        ? 'text-black bg-gradient-to-r from-emerald-400 to-lime-400 shadow-[0_0_20px_rgba(16,185,129,0.35)] font-semibold'
+                        : 'text-zinc-400 hover:text-white bg-[#161b22]/70 hover:bg-[#161b22] border border-emerald-500/20 hover:border-emerald-500/40'
+                    }`}
+                  >
+                    {filter}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+            {filteredProjects.map((project) => (
+              <ProjectCard key={project.id} project={project} />
+            ))}
+          </div>
+        </section>
+      );
+    }
+
+    // --- Interactive Skill Badge Component ---
+    function SkillPill({ skill }) {
+      const [isHovered, setIsHovered] = useState(false);
+
+      const getLevelBadge = (level) => {
+        switch (level) {
+          case 'Proficient':
+            return {
+              text: 'text-emerald-300',
+              dot: 'bg-emerald-400',
+              border: 'border-emerald-500/40',
+              bg: 'bg-emerald-950/95',
+            };
+          case 'Familiar':
+            return {
+              text: 'text-lime-300',
+              dot: 'bg-lime-400',
+              border: 'border-lime-500/40',
+              bg: 'bg-lime-950/95',
+            };
+          case 'Currently Learning':
+          default:
+            return {
+              text: 'text-teal-300',
+              dot: 'bg-teal-400',
+              border: 'border-teal-500/40',
+              bg: 'bg-teal-950/95',
+            };
+        }
+      };
+
+      const levelStyle = getLevelBadge(skill.level);
+
+      return (
+        <div
+          className="relative flex items-center"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
+          <div
+            className={`absolute -top-10 left-1/2 -translate-x-1/2 pointer-events-none transition-all duration-200 z-30 whitespace-nowrap ${
+              isHovered ? 'opacity-100 -translate-y-1 scale-100' : 'opacity-0 translate-y-2 scale-95'
+            }`}
+          >
+            <div
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg ${levelStyle.bg} ${levelStyle.border} border shadow-[0_4px_15px_rgba(0,0,0,0.8)] backdrop-blur-md`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${levelStyle.dot} animate-pulse`} />
+              <span className={`font-mono text-[10px] font-semibold uppercase tracking-wider ${levelStyle.text}`}>
+                {skill.level}
+              </span>
+              <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-[1px] border-solid border-t-emerald-950 border-t-4 border-x-transparent border-x-4 border-b-0" />
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className={`group relative flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-[#161b22]/70 hover:bg-[#161b22] border transition-all duration-200 cursor-pointer select-none ${
+              isHovered
+                ? 'scale-105 border-emerald-400 shadow-[0_0_18px_rgba(16,185,129,0.35)] -translate-y-0.5'
+                : 'border-emerald-500/20 hover:border-emerald-500/40'
+            }`}
+          >
+            <div className="flex items-center justify-center w-5 h-5 text-emerald-400 group-hover:scale-110 transition-transform">
+              <span className="font-mono text-xs font-bold text-emerald-400">{skill.glyph}</span>
+            </div>
+            <span className="font-mono text-xs font-medium text-zinc-200 group-hover:text-emerald-300 transition-colors">
+              {skill.name}
+            </span>
+          </button>
+        </div>
+      );
+    }
+
+    // --- Tech Stack & Skills Showcase Component ---
+    function TechStackSkills() {
+      const categories = [
+        {
+          id: 'languages',
+          title: 'Languages',
+          badge: 'Syntax & Logic',
+          description: 'Foundational programming languages used for algorithmic problem solving and software architecture.',
+          skills: [
+            { name: 'C++', glyph: 'C++', level: 'Proficient' },
+            { name: 'Python', glyph: 'Py', level: 'Proficient' },
+            { name: 'JavaScript', glyph: 'JS', level: 'Proficient' },
+            { name: 'TypeScript', glyph: 'TS', level: 'Familiar' },
+            { name: 'Java', glyph: '☕', level: 'Familiar' },
+            { name: 'SQL', glyph: '🗄️', level: 'Proficient' },
+          ],
+        },
+        {
+          id: 'frameworks-tools',
+          title: 'Frameworks & Tools',
+          badge: 'Development Ecosystem',
+          description: 'Modern component libraries, backends, styling toolkits, and DevOps automation tooling.',
+          skills: [
+            { name: 'React', glyph: '⚛', level: 'Proficient' },
+            { name: 'Tailwind CSS', glyph: '🎨', level: 'Proficient' },
+            { name: 'Node.js', glyph: '⬢', level: 'Familiar' },
+            { name: 'Git & GitHub', glyph: '⌥', level: 'Proficient' },
+            { name: 'FastAPI', glyph: '⚡', level: 'Currently Learning' },
+            { name: 'Docker', glyph: '🐳', level: 'Currently Learning' },
+          ],
+        },
+        {
+          id: 'core-concepts',
+          title: 'Core CS Concepts',
+          badge: 'Computer Science Core',
+          description: 'Theoretical fundamentals, systems engineering principles, and data modeling mastery.',
+          skills: [
+            { name: 'Data Structures & Alg', glyph: '🌲', level: 'Proficient' },
+            { name: 'Object-Oriented (OOP)', glyph: '📦', level: 'Proficient' },
+            { name: 'DBMS & Modeling', glyph: '🗃️', level: 'Proficient' },
+            { name: 'Operating Systems (OS)', glyph: '⚙️', level: 'Familiar' },
+            { name: 'Computer Networks', glyph: '🌐', level: 'Familiar' },
+          ],
+        },
+      ];
+
+      return (
+        <section id="skills" className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-20 border-t border-emerald-500/15">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+            <div>
+              <div className="inline-flex items-center gap-2 font-mono text-xs text-lime-400 mb-2.5 uppercase tracking-wider">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>// CAPABILITIES & MASTERY</span>
+              </div>
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+                Tech Stack & <span className="bg-gradient-to-r from-emerald-400 to-lime-300 bg-clip-text text-transparent">Skills</span>
+              </h2>
+              <p className="text-sm sm:text-base text-zinc-400 mt-2 max-w-xl">
+                A breakdown of my software engineering capabilities, development toolchain, and academic CS competencies.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 bg-[#161b22]/70 p-2.5 rounded-xl border border-emerald-500/15">
+              <div className="flex items-center gap-1.5 text-xs font-mono text-zinc-300">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_#10b981]"></span>
+                <span>Proficient</span>
+              </div>
+              <span className="text-zinc-600">//</span>
+              <div className="flex items-center gap-1.5 text-xs font-mono text-zinc-300">
+                <span className="w-2 h-2 rounded-full bg-lime-400 shadow-[0_0_6px_#a3e635]"></span>
+                <span>Familiar</span>
+              </div>
+              <span className="text-zinc-600">//</span>
+              <div className="flex items-center gap-1.5 text-xs font-mono text-zinc-300">
+                <span className="w-2 h-2 rounded-full bg-teal-400 shadow-[0_0_6px_#2dd4bf]"></span>
+                <span>Learning</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+            {categories.map((cat, idx) => (
+              <div
+                key={cat.id}
+                className="group relative flex flex-col justify-between rounded-2xl bg-[#161b22]/70 backdrop-blur-xl border border-emerald-500/20 hover:border-emerald-400/40 hover:shadow-[0_10px_30px_rgba(16,185,129,0.14)] p-6 sm:p-7 transition-all duration-300 overflow-hidden"
+              >
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500/40 to-transparent group-hover:via-lime-400/60 transition-all duration-500" />
+
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <span className="font-mono text-[11px] font-semibold text-lime-400 uppercase tracking-wider px-2.5 py-0.5 rounded bg-lime-400/10 border border-lime-400/20">
+                      {cat.badge}
+                    </span>
+                    <span className="font-mono text-xs text-zinc-500">
+                      0{idx + 1} // 03
+                    </span>
+                  </div>
+
+                  <h3 className="text-xl font-bold text-white mb-2 group-hover:text-emerald-300 transition-colors">
+                    {cat.title}
+                  </h3>
+                  <p className="text-xs text-zinc-400 leading-relaxed mb-6 font-normal">
+                    {cat.description}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2.5 pt-4 border-t border-emerald-500/10">
+                  {cat.skills.map((skill) => (
+                    <SkillPill key={skill.name} skill={skill} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      );
+    }
+
+    // --- Education & Campus Journey Component ---
+    function CampusJourney() {
+      const [activeMilestone, setActiveMilestone] = useState(null);
+
+      const milestones = [
+        {
+          year: '2026',
+          title: 'Make Money // Scaling Production Products & Career Launch',
+          note: 'Monetizing full-stack software architectures, launching commercial SaaS experiments, and securing high-impact engineering roles.',
+          status: 'Upcoming Goal',
+          badgeColor: 'border-emerald-400 text-emerald-300 bg-emerald-950/60',
+          nodeColor: 'bg-emerald-400 shadow-[0_0_12px_#10b981]',
+        },
+        {
+          year: '2025',
+          title: 'Make Money // High-Growth Internships & Client Solutions',
+          note: 'Landing top-tier developer internships, delivering paid freelance web solutions, and turning algorithmic knowledge into scalable software.',
+          status: 'Current Focus',
+          badgeColor: 'border-lime-400 text-lime-300 bg-lime-950/60',
+          nodeColor: 'bg-lime-400 shadow-[0_0_12px_#a3e635]',
+        },
+        {
+          year: '2024',
+          title: 'Make Money // First Paid Client Work & Hackathon Wins',
+          note: 'Kickstarting initial client contracts, winning campus hackathons with cash prizes, and building revenue-driven developer tools.',
+          status: 'Completed',
+          badgeColor: 'border-teal-400 text-teal-300 bg-teal-950/60',
+          nodeColor: 'bg-teal-400 shadow-[0_0_12px_#2dd4bf]',
+        },
+      ];
+
+      const achievements = [
+        {
+          icon: '🏆',
+          title: '1st Place - University Hackathon',
+          subtitle: 'Built an AI-assisted campus navigation tool with 4-person team',
+          metric: 'Top 1% of 60 Teams',
+        },
+        {
+          icon: '⚡',
+          title: '150+ LeetCode Solved',
+          subtitle: 'Consistent focus on Graphs, Trees, and Dynamic Programming',
+          metric: 'Top 15% Contest Rating',
+        },
+        {
+          icon: '👥',
+          title: 'Tech Club Organizer',
+          subtitle: 'Spearheaded peer programming circles and workshops for 200+ students',
+          metric: '5+ Campus Workshops',
+        },
+        {
+          icon: '📜',
+          title: 'Full-Stack Certified',
+          subtitle: 'Validated competence in modern React architectures, APIs, and databases',
+          metric: 'Certified Developer',
+        },
+      ];
+
+      return (
+        <section id="campus-life" className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-20 border-t border-emerald-500/15">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-14">
+            <div>
+              <div className="inline-flex items-center gap-2 font-mono text-xs text-lime-400 mb-2.5 uppercase tracking-wider">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>// TIMELINE & LEADERSHIP</span>
+              </div>
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+                Education & <span className="bg-gradient-to-r from-emerald-400 to-lime-300 bg-clip-text text-transparent">Campus Journey</span>
+              </h2>
+              <p className="text-sm sm:text-base text-zinc-400 mt-2 max-w-xl">
+                My collegiate milestones, developer milestones, and key achievements outside the lecture hall.
+              </p>
+            </div>
+
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#161b22]/80 border border-emerald-500/20 text-xs font-mono text-emerald-300">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+              <span>B.Tech Undergrad // Active Journey</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+            <div className="lg:col-span-7 relative pl-6 sm:pl-8">
+              <div className="absolute left-[11px] sm:left-[15px] top-4 bottom-4 w-[2px] bg-gradient-to-b from-emerald-400 via-teal-400 to-lime-400/30 shadow-[0_0_10px_rgba(16,185,129,0.45)]" />
+
+              <div className="flex flex-col gap-8">
+                {milestones.map((m, idx) => {
+                  const isHovered = activeMilestone === idx;
+                  return (
+                    <div
+                      key={m.year}
+                      className="relative group"
+                      onMouseEnter={() => setActiveMilestone(idx)}
+                      onMouseLeave={() => setActiveMilestone(null)}
+                    >
+                      <div
+                        className={`absolute -left-[27px] sm:-left-[31px] top-4 w-4 h-4 rounded-full border-2 border-[#0d1117] transition-all duration-300 z-10 flex items-center justify-center ${
+                          m.nodeColor
+                        } ${isHovered ? 'scale-125 ring-4 ring-emerald-500/30' : ''}`}
+                      >
+                        <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                      </div>
+
+                      <div
+                        className={`relative p-5 sm:p-6 rounded-2xl bg-[#161b22]/70 backdrop-blur-xl border transition-all duration-300 ${
+                          isHovered
+                            ? 'border-emerald-400/60 shadow-[0_8px_30px_rgba(16,185,129,0.2)] -translate-y-1 bg-[#161b22]/90'
+                            : 'border-emerald-500/20 hover:border-emerald-500/40'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-2.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-lg sm:text-xl font-bold text-white group-hover:text-emerald-300 transition-colors">
+                              {m.year}
+                            </span>
+                            <span className="text-zinc-600">//</span>
+                            <span className={`font-mono text-[10px] font-semibold uppercase px-2 py-0.5 rounded-md border ${m.badgeColor}`}>
+                              {m.status}
+                            </span>
+                          </div>
+                          <span className="font-mono text-xs text-zinc-500">
+                            Milestone 0{idx + 1}
+                          </span>
+                        </div>
+
+                        <h3 className="text-base sm:text-lg font-semibold text-zinc-100 group-hover:text-white transition-colors mb-2">
+                          {m.title}
+                        </h3>
+
+                        <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed font-normal">
+                          {m.note}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="lg:col-span-5 flex flex-col gap-4">
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-mono text-xs font-semibold text-lime-400 uppercase tracking-wider">
+                  // Highlights & Achievements
+                </span>
+                <span className="font-mono text-[11px] text-zinc-500">4 Verified Badges</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {achievements.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="group relative flex flex-col justify-between p-4 sm:p-4.5 rounded-2xl bg-[#161b22]/70 backdrop-blur-xl border border-emerald-500/20 hover:border-emerald-400/50 hover:shadow-[0_8px_25px_rgba(16,185,129,0.18)] hover:-translate-y-1 transition-all duration-300 overflow-hidden cursor-default"
+                  >
+                    <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-emerald-400/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-2xl transform group-hover:scale-110 transition-transform">
+                          {item.icon}
+                        </span>
+                        <span className="font-mono text-[10px] text-emerald-400/80 bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-500/20">
+                          {item.metric}
+                        </span>
+                      </div>
+
+                      <h4 className="text-sm font-bold text-white group-hover:text-emerald-300 transition-colors mb-1.5 leading-snug">
+                        {item.title}
+                      </h4>
+
+                      <p className="text-[11px] text-zinc-400 leading-relaxed font-normal">
+                        {item.subtitle}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-2 p-4 rounded-xl bg-gradient-to-r from-emerald-950/30 to-lime-950/20 border border-emerald-500/20 flex items-start gap-3">
+                <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-300 font-mono text-xs font-bold shrink-0">
+                  ⚡
+                </div>
+                <div className="text-xs text-zinc-300 leading-relaxed">
+                  <strong className="text-white font-semibold">Campus Leadership:</strong> Active student community contributor, hosting open coding sessions, AI reading groups, and mentoring freshmen developers.
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    // --- App Root Component ---
+    function App() {
+      return (
+        <div className="relative min-h-screen bg-[#0d1117] text-zinc-100 selection:bg-emerald-500 selection:text-black overflow-x-hidden">
+          <MatrixGridCanvas />
+          <Navbar />
+          <main>
+            <Hero />
+            <FeaturedProjects />
+            <TechStackSkills />
+            <CampusJourney />
+
+            <section id="about" className="relative z-10 max-w-5xl mx-auto px-6 py-24 border-t border-emerald-500/10">
+              <div className="flex items-center gap-3 mb-6">
+                <span className="font-mono text-emerald-400 text-sm">01.</span>
+                <h2 className="text-2xl font-bold text-white tracking-tight">About Me</h2>
+                <div className="h-[1px] bg-emerald-500/20 flex-1 ml-4" />
+              </div>
+              <p className="text-zinc-400 max-w-2xl leading-relaxed">
+                I am a student developer passionate about machine learning, scalable backend architectures, and crafting intuitive, responsive web experiences.
+              </p>
+            </section>
+
+            <section id="contact" className="relative z-10 max-w-5xl mx-auto px-6 py-24 border-t border-emerald-500/10 text-center">
+              <div className="inline-block font-mono text-xs text-lime-400 mb-3 tracking-widest uppercase">
+                // Ready to collaborate?
+              </div>
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-4">Let's Connect</h2>
+              <p className="text-zinc-400 max-w-lg mx-auto mb-8">
+                Whether you have an internship opportunity, project idea, or just want to chat about AI and web development, my inbox is always open.
+              </p>
+              <a
+                href="mailto:manish.shirvi@example.com"
+                className="inline-flex items-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold text-black bg-gradient-to-r from-emerald-400 to-lime-400 hover:shadow-[0_0_30px_rgba(16,185,129,0.4)] transition-all duration-300"
+              >
+                Send an Email &rarr;
+              </a>
+            </section>
+          </main>
+
+          <footer className="relative z-10 border-t border-emerald-500/10 py-8 text-center text-xs font-mono text-zinc-500">
+            Designed & Built by Manish Shirvi &bull; Cyber-Emerald Theme
+          </footer>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
